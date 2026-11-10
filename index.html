@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PredictRadar — Kalshi & Polymarket arbitrage scanner</title>
+  <meta name="description" content="PredictRadar scans Kalshi and Polymarket every minute for arbitrage: the same event priced differently, with the locked-in return after fees. Live track record and a stake calculator on iPhone.">
+  <meta property="og:title" content="PredictRadar — Kalshi & Polymarket arbitrage scanner">
+  <meta property="og:description" content="Live price gaps between prediction markets, with the return after fees.">
+  <meta property="og:image" content="https://predictradar.app/logo.png">
+  <meta name="theme-color" content="#0b0d10">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <img src="/logo.png" alt="PredictRadar app icon" width="112" height="112">
+      <h1 class="wordmark"><span class="p">Predict</span><span class="r">Radar</span></h1>
+      <p class="lead">Live price gaps between prediction markets. When YES on one venue plus NO on the other costs less than $1, PredictRadar shows you the spread and the return after fees.</p>
+      <a class="store" href="https://apps.apple.com/app/id6821098868">Download on the App Store</a>
+    </section>
+
+    <section class="record" id="record" hidden>
+      <h2>Track record</h2>
+      <p class="sub" id="rec-lead">What $1 in every spread caught in the last 7 days would have made, at the price when each one opened, after fees.</p>
+      <div class="tabs" role="tablist">
+        <button data-p="day" role="tab">24h</button>
+        <button data-p="week" role="tab" aria-selected="true">7 days</button>
+        <button data-p="month" role="tab">30 days</button>
+        <button data-p="all" role="tab">All</button>
+      </div>
+      <div class="cols">
+        <div class="col"><span class="k">Free · up to 2%</span><b id="rec-free">—</b><span id="rec-free-n"></span></div>
+        <div class="col pro"><span class="k">Pro · all spreads</span><b id="rec-all">—</b><span id="rec-all-n"></span></div>
+      </div>
+      <table class="tiers"><tbody id="rec-tiers"></tbody></table>
+      <p class="fine" id="rec-best"></p>
+      <p class="fine">Hypothetical results: $1 per spread at the return it had when first seen. Real fills depend on speed and order-book depth. Not financial advice.</p>
+    </section>
+
+    <section class="points">
+      <div class="point">
+        <h3>Prices every minute</h3>
+        <p>Kalshi and Polymarket are scanned around the clock, and matching markets are paired automatically.</p>
+      </div>
+      <div class="point">
+        <h3>Fees included</h3>
+        <p>Returns already subtract trading fees, and an annualized figure shows what the capital earns until the market closes.</p>
+      </div>
+      <div class="point">
+        <h3>Built-in calculator</h3>
+        <p>Enter an amount and see how many contracts to buy on each side and what comes back.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Zintex OÜ</span>
+      <span class="spacer"></span>
+      <a href="https://legal.predictradar.app/privacy/">Privacy</a>
+      <a href="https://legal.predictradar.app/terms/">Terms</a>
+      <a href="mailto:info@zintex.dev">Contact</a>
+    </div>
+  </footer>
+  <script>
+  // Live numbers from the same public endpoint the app uses.
+  (function () {
+    var URL_ = "https://jjwqlaeooyhnhrfucfcu.supabase.co/functions/v1/board";
+    var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqd3FsYWVvb3lobmhyZnVjZmN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDkwMzIsImV4cCI6MjEwNzEyNTAzMn0.OAnP5cvXr_eVGTDNrdM-EiXfnV3pL3M_3OFwhrc6QnE";
+    var LEAD = {
+      day: "What $1 in every spread caught in the last 24 hours would have made",
+      week: "What $1 in every spread caught in the last 7 days would have made",
+      month: "What $1 in every spread caught in the last 30 days would have made",
+      all: "What $1 in every spread caught since SINCE would have made"
+    };
+    var TIER = { lt1: "Under 1%", "1to2": "1–2%", "2to5": "2–5%", "5plus": "5% and up" };
+    function money(v) { v = Number(v) || 0; return v <= 0 ? "$0" : v < 0.01 ? "<$0.01" : "+$" + v.toFixed(2); }
+    function n(c) { return c === 1 ? "1 spread" : c + " spreads"; }
+    var stats = null;
+    function show(p) {
+      var d = stats.periods[p]; if (!d) return;
+      var since = stats.since ? new Date(stats.since).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "launch";
+      document.getElementById("rec-lead").textContent = LEAD[p].replace("SINCE", since) + ", at the price when each one opened, after fees.";
+      document.getElementById("rec-free").textContent = money(d.free.earned);
+      document.getElementById("rec-free-n").textContent = n(d.free.count);
+      document.getElementById("rec-all").textContent = money(d.all.earned);
+      document.getElementById("rec-all-n").textContent = n(d.all.count);
+      var rows = "";
+      (d.tiers || []).forEach(function (t) {
+        rows += "<tr><td>" + TIER[t.key] + (t.pro ? ' <span class="pill">Pro</span>' : "") + "</td><td>" + t.count + "</td><td>" + (t.count ? money(t.earned) : "—") + "</td></tr>";
+      });
+      document.getElementById("rec-tiers").innerHTML = rows;
+      document.getElementById("rec-best").textContent = d.all.best ? "Best spread: +" + Number(d.all.best).toFixed(2) + "%" : "";
+      document.querySelectorAll(".tabs button").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.p === p ? "true" : "false"); });
+    }
+    fetch(URL_, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: KEY, Authorization: "Bearer " + KEY },
+      body: JSON.stringify({ action: "stats" })
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || !j.stats || !j.stats.periods) return;
+      stats = j.stats;
+      document.getElementById("record").hidden = false;
+      show("week");
+      document.querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.p); }); });
+    }).catch(function () {});
+  })();
+  </script>
+</body>
+</html>
